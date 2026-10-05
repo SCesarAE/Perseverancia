@@ -49,12 +49,23 @@ export function heightAt(x, z) {
   return h;
 }
 
-export function createTerrain() {
-  const SIZE = 3200, SEG = 560;
-  const geo = new THREE.PlaneGeometry(SIZE, SIZE, SEG, SEG);
+// Parche de alta resolución donde maneja el rover (celdas de ~0.6 m), rodeado por el terreno lejano.
+export const NEAR_SIZE = 400;
+const TEX_METERS = 14; // metros por repetición de la textura de color
+
+function buildPatch(size, seg, hole = 0) {
+  const geo = new THREE.PlaneGeometry(size, size, seg, seg);
   geo.rotateX(-Math.PI / 2);
   const pos = geo.attributes.position;
-  for (let i = 0; i < pos.count; i++) pos.setY(i, heightAt(pos.getX(i), pos.getZ(i)));
+  const uv = geo.attributes.uv;
+  for (let i = 0; i < pos.count; i++) {
+    const x = pos.getX(i), z = pos.getZ(i);
+    let y = heightAt(x, z);
+    // El terreno lejano se hunde bajo el parche cercano para no competir con él
+    if (hole && Math.abs(x) < hole && Math.abs(z) < hole) y -= 4;
+    pos.setY(i, y);
+    uv.setXY(i, x / TEX_METERS, z / TEX_METERS);
+  }
   geo.computeVertexNormals();
 
   // Colores por vértice: crestas claras, valles y pendientes más oscuros.
@@ -73,16 +84,18 @@ export function createTerrain() {
     colors.set([c.r, c.g, c.b], i * 3);
   }
   geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+  return geo;
+}
 
+export function createTerrain() {
   const tex = new THREE.CanvasTexture(noiseTexture(512, 10, 5));
   tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
-  tex.repeat.set(SIZE / 14, SIZE / 14);
   tex.anisotropy = 8;
   tex.colorSpace = THREE.SRGBColorSpace;
 
   const bump = new THREE.CanvasTexture(noiseTexture(512, 24, 4));
   bump.wrapS = bump.wrapT = THREE.RepeatWrapping;
-  bump.repeat.set(SIZE / 2, SIZE / 2);
+  bump.repeat.set(TEX_METERS / 2, TEX_METERS / 2);
 
   const mat = new THREE.MeshStandardMaterial({
     vertexColors: true,
@@ -92,8 +105,13 @@ export function createTerrain() {
     roughness: 0.97,
     metalness: 0,
   });
-  const mesh = new THREE.Mesh(geo, mat);
-  mesh.receiveShadow = true;
-  mesh.castShadow = true;
-  return mesh;
+  const group = new THREE.Group();
+  const far = new THREE.Mesh(buildPatch(3200, 560, NEAR_SIZE / 2 - 6), mat);
+  const near = new THREE.Mesh(buildPatch(NEAR_SIZE, 640), mat);
+  for (const m of [far, near]) {
+    m.receiveShadow = true;
+    m.castShadow = true;
+    group.add(m);
+  }
+  return group;
 }

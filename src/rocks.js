@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { fbm, noiseTexture } from './noise.js';
 import { heightAt } from './terrain.js';
+import { SPAWN } from './rover.js';
 
 function rockGeometry(seed) {
   const geo = new THREE.IcosahedronGeometry(1, 3);
@@ -56,6 +57,8 @@ export function createRocks() {
     const a = rand() * Math.PI * 2;
     const x = Math.cos(a) * r, z = Math.sin(a) * r - 5;
     const big = rand() < 0.06;
+    // Dejar libre la zona de aterrizaje del rover
+    if (Math.hypot(x - SPAWN.x, z - SPAWN.z) < 7) continue;
     const s = big ? 1.4 + rand() * 1.8 : 0.12 + Math.pow(rand(), 2.5) * 1.0;
     dummy.position.set(x, heightAt(x, z) + s * 0.15, z);
     dummy.rotation.set(rand() * 0.6, rand() * Math.PI * 2, rand() * 0.6);
