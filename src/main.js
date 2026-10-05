@@ -11,6 +11,9 @@ import { createRocks } from './rocks.js';
 import { createDust } from './dust.js';
 import { createRover, SPAWN } from './rover.js';
 import { createTracks } from './tracks.js';
+import { createMissionControl } from './mission/panel.js';
+
+createMissionControl();
 
 // --- Renderer ---
 const renderer = new THREE.WebGLRenderer({ antialias: true });
